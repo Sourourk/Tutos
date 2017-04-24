@@ -1,0 +1,84 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+h1 {
+    border-bottom: 3px solid #cc9900;
+    color: #996600;
+    font-size: 30px;
+}
+table, th , td {
+    border: 1px solid grey;
+    border-collapse: collapse;
+    padding: 5px;
+}
+table tr:nth-child(odd) {
+    background-color: #f1f1f1;
+}
+table tr:nth-child(even) {
+    background-color: #ffffff;
+}
+</style>
+</head>
+<body>
+
+<script>
+function ajouter()
+{
+var xmlhttp = new XMLHttpRequest();
+cin=document.getElementById("cin").value;
+nom=document.getElementById("nom").value;
+prenom=document.getElementById("prenom").value;
+pwd=document.getElementById("pwd").value;
+adresse=document.getElementById("adresse").value;
+classe=document.getElementById("classe").value;
+email=document.getElementById("email").value;
+
+var url = "ajouter.php?cin="+cin+"&nom="+nom+"&prenom="+prenom+"&email="+email+"&pwd="+pwd+"&adresse="+adresse+"&classe="+classe;
+if (cin=="")
+{document.getElementById("demo").innerHTML ="Vérifier vos parametres";
+document.getElementById("demo").style.backgroundColor="#fba";
+}
+else
+{
+xmlhttp.onreadystatechange=function() {
+    if (this.readyState == 4 && this.status == 200) {
+	  if(this.responseText=="OK")
+		{
+        document.getElementById("demo").innerHTML ="Etudiant est bien ajouté";
+		document.getElementById("demo").style.backgroundColor="green";
+		}
+		else
+		{
+		document.getElementById("demo").innerHTML ="Etudiant est déja inscrit, vérifier le CIN";
+		document.getElementById("demo").style.backgroundColor="#fba";
+		}
+
+    }
+}
+xmlhttp.open("GET", url, true);
+xmlhttp.send();
+}
+}
+</script>
+<h1>Ajouter un etudiant</h1>
+<p>  
+  Nom :
+<br><input type="text" id="nom" name="nom"  required/><br>
+ Prénom :
+<br><input type="text" id="prenom" name="prenom"  required/><br>
+CIN :
+<br><input type="number" id="cin" name="cin" required/><br>
+ Mot de passe :
+<br><input type="password" id="pwd" name="pwd" placeholder="********" required/><br>
+E-mail :<br><input type="email" id="email" name="email"  placeholder="yourname@email.com" required/><br>
+Classe :
+<br><input type="text" id="classe" name="classe"  required/><br>
+ Adresse :
+<br><input type="text" id="adresse" name="adresse"  required/><br><br>
+<button type="button" onclick="ajouter()">Ajouter</button>
+</p>
+<div id="demo"> </div>
+</body>
+</html>

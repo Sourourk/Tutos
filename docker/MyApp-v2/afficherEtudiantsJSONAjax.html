@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+h1 {
+    border-bottom: 3px solid #cc9900;
+    color: #996600;
+    font-size: 30px;
+}
+table, th , td {
+    border: 1px solid grey;
+    border-collapse: collapse;
+    padding: 5px;
+}
+table tr:nth-child(odd) {
+    background-color: #f1f1f1;
+}
+table tr:nth-child(even) {
+    background-color: #ffffff;
+}
+</style>
+</head>
+<body>
+
+<script>
+function refresh()
+{
+
+var xmlhttp = new XMLHttpRequest();
+var url = "listeetudiantsJSON.php";
+
+xmlhttp.onreadystatechange=function() {
+    if (this.readyState == 4 && this.status == 200) {
+        myFunction(this.responseText);
+        alert(this.responseText);
+    }
+}
+xmlhttp.open("GET", url, true);
+xmlhttp.send();
+
+function myFunction(response) {
+    var obj = JSON.parse(response);
+	var arr=obj.etudiants;
+    var i;
+    var out = "<table>";
+
+    for(i = 0; i < arr.length; i++) {
+        out += "<tr><td>" +
+        arr[i].cin +
+        "</td><td>" +
+        arr[i].nom +
+        "</td><td>" +
+        arr[i].prenom +
+        "</td><td>" +
+        arr[i].email +
+        "</td><td>" +
+        arr[i].adresse +
+        "</td><td>" +
+        arr[i].classe +
+        "</td></tr>";
+    }
+    out += "</table>";
+    document.getElementById("demo").innerHTML = out;
+}
+}
+</script>
+<h1>Liste des étudiants</h1>
+<div id="demo"></div>
+<button type="submit" onclick="refresh()">Actualiser</button>
+</body>
+</html>

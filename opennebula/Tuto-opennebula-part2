@@ -1,0 +1,162 @@
+#################Frontend Configuration#######
+carte2 : Tout autoriser
+1-Allow http access
+
+$ firewall-cmd --permanent --zone=public --add-service=http
+$ firewall-cmd --permanent --zone=public --add-service=https
+$ firewall-cmd --reload
+
+2-Install Opennebula :
+
+$ yum install opennebula-server opennebula-sunstone opennebula-ruby opennebula-gate opennebula-flow
+/usr/share/one/install_gems
+
+3-change password oneadmin :
+
+$ su - oneadmin 
+$ echo "oneadmin:opennebula" > ~/.one/one_auth
+$ exit
+
+4-Edit Tutorial Configuration
+
+$ vi /var/local/tutorial/configure_tutorial.sh
+-->OpenNebula can be configured to use qemu emulation instead of kvm
+virtualization but not per VM but in the driver definition. The type
+of the VM driver can be changed from "kvm" to "qemu" in oned.conf.
+5-Set Tutorial Configuration
+
+$ chmod a+x /var/local/tutorial/configure_tutorial.sh && /var/local/tutorial/configure_tutorial.sh
+$chown -R oneadmin /var/lib/one/
+
+6-Start httpd server
+
+$ systemctl start httpd
+--->http://localhost:8080
+7-Start Opennebula
+
+$ systemctl start opennebula
+$ systemctl start opennebula-sunstone
+$ service libvirtd restart
+$ systemctl start opennebula-gate
+$ systemctl start opennebula-flow
+
+8-Overview of the Opennebula CLI
+
+$ su - oneadmin
+$ oneuser show
+$ oneuser -h
+$ one[TAB]
+
+
+9-Open Sunstone Web Site
+
+->VM Settings, Network, Carte 1, Add Rules TCP: port sunstone-server 9869<=>9869
+->Allow http access (as root)
+$ firewall-cmd --zone=public --add-port=9869/tcp --permanent
+$ firewall-cmd --reload
+http://localhost:9869 oubien http://192.168.56.101:9869
+user: onedadmin, password:opennebula
+
+############Node Configuration############""
+
+1-Install Opennebula Node
+
+$ yum install opennebula-node-kvm
+$ service libvirtd restart
+
+2-Change passwd of oneadmin user (as root)
+
+$ passwd oneadmin
+$su - oneadmin 
+$ chown -R oneadmin:oneadmin .ssh/
+
+
+#######Configure password-less ssh (as oneadmin user on frontend)#####
+$ ssh-keyscan node1 node2 >> /var/lib/one/.ssh/known_hosts
+$ scp -rp /var/lib/one/.ssh node2:/var/lib/one/
+$ scp -rp /var/lib/one/.ssh node3:/var/lib/one/ (option)
+$ ssh node1
+$ exit
+$ ssh node2>
+$ ssh node1
+$ exit
+$ exit
+
+###Adding Hosts (as oneadmin user on frontend)###
+$ onehost --help
+$ onehost create --help
+$ onehost create node2 -i kvm -v kvm
+$ onehost list
+$ onehost top
+# Wait for ON ... and then CTRL-C
+$ onehost show node2
+
+###Configure NFS Shared Storage###
+1-Frontend (node1) as root:
+Allow http access
+$ firewall-cmd --permanent --zone=public --add-service=nfs
+$ firewall-cmd --reload
+$ echo "/var/lib *(rw,sync,no_subtree_check,root_squash,anonuid=9869,anongid=9869)" > /etc/exports
+$ systemctl start nfs
+
+2-Node (node2) as root :
+Allow http access
+$ firewall-cmd --permanent --zone=public --add-service=nfs
+$ firewall-cmd --reload
+$ ls /var/lib/one/
+$ systemctl start nfs && mount -t nfs node1:/var/lib/one/ /var/lib/one/
+OR
+echo "#!/bin/sh
+#
+# This script will be executed *after* all the other init scripts.
+# You can put your own initialization stuff in here if you don't
+# want to do the full Sys V style init stuff.
+
+mount -t nfs node1:/var/lib/one/ /var/lib/one/
+
+touch /var/lock/subsys/local" > /etc/rc.local
+
+$ chmod a+x /etc/rc.local 
+$ ls /var/lib/one/
+
+###Storage###
+/var/lib/one/datastores/
+set TM_MAD to shared for files, default and system
+###Add images from marketplace###
+Storage/Apps/ttylinux-kvm, download to ttylinux-kvm-test; wait until READY
+
+###Add Templates###
+Templates/VMs, open ttylinux-kvm-test template, set KVM Hypervisor, CPU_Architecture: w68_64, Input/Output: VNC
+Context : Add SSH contextualization (copy/paste .ssh/id_rsa.pub of frontend node), check Add Network contextualization and Add OneGate token.
+
+###Add Network###
+Network/Virtual Networks/ Name: mynetwork, Bridge: br1, Network mode : bridged, 192.168.0.100 (Start IP 192.168.0.101, size 50)
+
+###Create Instances###
+Templates/VMs, open ttylinux-kvm-test template, set Network : mynetwork.
+Instances/VM : create new instance (instance1) from ttylinux-kvm-test template.
+
+###Acces VNC on node ###
+-Frontend as root:
+$ ss -ntap | grep 29876
+$ firewall-cmd --zone=public --add-port=29876/tcp --permanent
+$ firewall-cmd --reload
+-Login with root:password, ifconfig, ping 192.168.56.101
+-Node as root (if problem on access):
+$firewall-cmd --zone=public --add-port=5900/tcp --permanent
+$ firewall-cmd --reload
+
+###SSH instance###
+-->put pub_key of frontend in context of template (templates, Context/Add SSH contextualization)
+-->start sshd (service sshd start)
+-->from frontend ssh root@192.168.0.101
+
+###VDC admin Add groups as oneadmin###
+###VDC admin Add user account###
+###Cloud User account Create Instances###
+
+
+
+
+
+

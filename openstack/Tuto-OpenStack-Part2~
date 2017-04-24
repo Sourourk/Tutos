@@ -1,22 +1,22 @@
 ###DevStack Installation###
--Install git
+1-Install git
 
 $ apt-get install -y git sudo || yum install -y git sudo
 
--Add Stack User
+2-Add Stack User
 
 $ sudo adduser stack
 $ sudo tee <<<"stack ALL=(ALL) NOPASSWD: ALL" /etc/sudoers
 $ sudo su - stack
 
--Set Up Ssh
+3-Set Up SSH
 
 Set up the stack user on each node with an ssh key for access (replace key with your  .ssh/id_rsa.pub):
 $ su - stack
 $ mkdir ~/.ssh; chmod 700 ~/.ssh
 echo "ssh-rsa AAAAB3NzaC1yc2EAAAADXXXXXXXXXXXXXXXXXXXXXXXX walid@walid-Inspiron-3521" > ~/.ssh/authorized_keys
 
--Download DevStack
+4-Download DevStack
 
 $ git clone https://git.openstack.org/openstack-dev/devstack
 $ cd devstack
@@ -25,8 +25,8 @@ The devstack repo contains a script that installs OpenStack and templates for co
 ###Configure OpenStack Controller###
 
 The cluster controller runs all OpenStack services. Configure the cluster controller’s DevStack in local.conf:
--Add carte 3 (type Briged)
--Check IP of enp0s9 NIC
+1-Add carte 3 (type Briged)
+2-Check IP of enp0s9 NIC
 [[local|localrc]]
 #HOST_IP=192.168.56.101 # inside the same physical machine
 HOST_IP=192.168.1.74 #when using muti-node running on different physical machines (with briged interface)
@@ -39,12 +39,8 @@ RABBIT_PASSWORD=$ADMIN_PASSWORD
 SERVICE_PASSWORD=$ADMIN_PASSWORD
 
 
-In the multi-node configuration the first 10 or so IPs in the private subnet are usually reserved. Add this to local.sh to have it run after every stack.sh run:
-
-for i in `seq 2 10`; do /opt/stack/nova/bin/nova-manage fixed reserve 10.4.128.$i; done
-Fire up OpenStack:
-
 ./stack.sh
+./unstack.sh (when reboot)
 
 
 ####Configure Openstack Compute Node###
@@ -79,7 +75,7 @@ VNCSERVER_PROXYCLIENT_ADDRESS=$VNCSERVER_LISTEN
 
 ###Admin Space##
 -Project, Admin, Identity
-###Create user###
+
 ###As demo user###
 -Project [compute, Network], Identity
 -Show netwok topology
@@ -92,10 +88,13 @@ VNCSERVER_PROXYCLIENT_ADDRESS=$VNCSERVER_LISTEN
 -->Allocate 2 floating IP (Network/Floating IPs/Allocate IP to project) : 172.24.4.x
 --> OR directly associate floating IP to 2 instances
 -ssh instance_1 : ssh cirros@172.24.4.x , password cubswin:)
+
 ###Create project Teachers and one user (teacher1)###
 -as admin
+
 ###Create router2###
 -as user teacher1, attach router2 to public network
+
 ###Create Network teacher_network and subnet teacher_subnet###
 -as user teacher1 ==>10.10.0.0/24
 -attach teacher_subnet to router2

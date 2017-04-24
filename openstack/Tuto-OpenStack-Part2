@@ -1,0 +1,108 @@
+###DevStack Installation###
+1-Install git
+
+$ apt-get install -y git sudo || yum install -y git sudo
+
+2-Add Stack User
+
+$ sudo adduser stack
+$ sudo tee <<<"stack ALL=(ALL) NOPASSWD: ALL" /etc/sudoers
+$ sudo su - stack
+
+3-Set Up SSH
+
+Set up the stack user on each node with an ssh key for access (replace key with your  .ssh/id_rsa.pub):
+$ su - stack
+$ mkdir ~/.ssh; chmod 700 ~/.ssh
+echo "ssh-rsa AAAAB3NzaC1yc2EAAAADXXXXXXXXXXXXXXXXXXXXXXXX walid@walid-Inspiron-3521" > ~/.ssh/authorized_keys
+
+4-Download DevStack
+
+$ git clone https://git.openstack.org/openstack-dev/devstack
+$ cd devstack
+The devstack repo contains a script that installs OpenStack and templates for configuration files
+
+###Configure OpenStack Controller###
+
+The cluster controller runs all OpenStack services. Configure the cluster controller’s DevStack in local.conf:
+-Add carte 3 (type Briged)
+-Check IP of enp0s9 NIC
+[[local|localrc]]
+#HOST_IP=192.168.56.101 # inside the same physical machine
+HOST_IP=192.168.1.74 #when using muti-node running on different physical machines (with briged interface)
+FLAT_INTERFACE=enp0s9 # or FLAT_INTERFACE=enp0s8 when using mult-node on the same physical machine
+MULTI_HOST=1
+LOGFILE=/opt/stack/logs/stack.sh.log
+ADMIN_PASSWORD=labstack
+DATABASE_PASSWORD=$ADMIN_PASSWORD
+RABBIT_PASSWORD=$ADMIN_PASSWORD
+SERVICE_PASSWORD=$ADMIN_PASSWORD
+
+
+./stack.sh
+./unstack.sh (when reboot)
+
+
+####Configure Openstack Compute Node###
+The cluster compute runs  hypervisor services. Configure the cluster compute’s DevStack in local.conf
+-Add carte 3 (type Bridged)
+-Check IP of enp0s9 network interface
+[[local|localrc]]
+#HOST_IP=192.168.56.102 # inside the same physical machine
+HOST_IP=192.168.3.216 # change this per compute node (when using muti-node running on different physical machines)
+FLAT_INTERFACE=enp0s9 # or FLAT_INTERFACE=enp0s8 when using multi-node on the same physical machine
+MULTI_HOST=1
+LOGFILE=/opt/stack/logs/stack.sh.log
+ADMIN_PASSWORD=labstack
+DATABASE_PASSWORD=$ADMIN_PASSWORD
+RABBIT_PASSWORD=$ADMIN_PASSWORD
+SERVICE_PASSWORD=$ADMIN_PASSWORD
+DATABASE_TYPE=mysql
+SERVICE_HOST=192.168.1.74 # when using muti-node running on different physical machines
+#SERVICE_HOST=192.168.56.101 # when using multi-node on the same physical machine
+MYSQL_HOST=$SERVICE_HOST
+RABBIT_HOST=$SERVICE_HOST
+GLANCE_HOSTPORT=$SERVICE_HOST:9292
+ENABLED_SERVICES=n-cpu,q-agt,n-api-meta,c-vol,placement-api
+NOVA_VNC_ENABLED=True
+NOVNCPROXY_URL="http://$SERVICE_HOST:6080/vnc_auto.html"
+VNCSERVER_LISTEN=$HOST_IP
+VNCSERVER_PROXYCLIENT_ADDRESS=$VNCSERVER_LISTEN
+
+
+
+
+
+###Admin Space##
+-Project, Admin, Identity
+
+###As demo user###
+-Project [compute, Network], Identity
+-Show netwok topology
+-Create 3 intsances cirros (64MB, 512MB, 512MB)
+-Check Host (as admin user)
+-Access to Console (add port forwarding to controler VM (TCP/6080<->6080))
+-ifconfig (ping to other instances)
+-ping/ssh from controler --> By default, we will not be able to ping or SSH to the VMs. We will need to make changes to the Security rules, and to associate floating IP to instances from public pool network.
+-->SSH access : Network/Security Groups/Manage Rules, add ALL ICMP, Custum Rules (add 22 port)
+-->Allocate 2 floating IP (Network/Floating IPs/Allocate IP to project) : 172.24.4.x
+--> OR directly associate floating IP to 2 instances
+-ssh instance_1 : ssh cirros@172.24.4.x , password cubswin:)
+
+###Create project Teachers and one user (teacher1)###
+-as admin
+
+###Create router2###
+-as user teacher1, attach router2 to public network
+
+###Create Network teacher_network and subnet teacher_subnet###
+-as user teacher1 ==>10.10.0.0/24
+-attach teacher_subnet to router2
+-create instance instance_4 using new network.
+-Network/Routers/router2/Add Interface: attach the teacher_subnet network to the public router so that instance_4 can be accessed from public network.
+-Add Security Rules
+-Add Floating IP (from public pool -->172.24.4.x)
+-Associate IP to instance_4
+-ssh instance_4. ssh cirros@172.24.4.x , password cubswin:)
+
+
