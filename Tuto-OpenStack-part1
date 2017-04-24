@@ -1,0 +1,66 @@
+1-Installation de  VirtualBox
+1.1 Ubuntu <16.04
+-Récupérer les clés de signature du dépôt de VirtualBox :
+wget -q http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc -O- | sudo apt-key add - 
+-Ajouter le dépôt d'Oracle compatible avec la version d'Ubuntu à la liste de sources de logiciels :
+echo "deb http://download.virtualbox.org/virtualbox/debian $(lsb_release -sc) contrib" | sudo tee /etc/apt/sources.list.d/virtualbox.list && wget -q http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc -O- | sudo apt-key add - && sudo apt-get update
+-Installer VirtualBox-5.1
+sudo apt-get install virtualbox-5.1
+
+1.2 Ubuntu >=16.04
+-Récupérer les clés de signature du dépôt de VirtualBox :
+wget -q -O- http://download.virtualbox.org/virtualbox/debian/oracle_vbox_2016.asc | sudo apt-key add -
+-Ajouter le dépôt d'Oracle compatible avec la version d'Ubuntu à la liste de sources de logiciels :
+echo "deb http://download.virtualbox.org/virtualbox/debian $(lsb_release -sc) contrib" | sudo tee /etc/apt/sources.list.d/virtualbox.list && wget -q http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc -O- | sudo apt-key add - && sudo apt-get update
+-Installer VirtualBox-5.1
+sudo apt-get install virtualbox-5.1
+##Commandes Facultatives##
+-Ajouter le compte dans le groupe ''vboxusers'' pour avoir accès à l'USB dans vos machines virtuelles.
+sudo usermod -G vboxusers -a $USER
+-Si vous avez installé Virtualbox des dépots Oracle en remplacement de la version des dépots officiels d'Ubuntu, il peut-être nécessaire de mettre à jour le module DKMS :
+sudo /etc/init.d/vboxdrv setup
+-Desinstaller une ancienne version Virtualbox 'dépot officiel d'Ubuntu ou bien celui d'Oracle)
+sudo apt-get purge virtualbox-\*
+/sbin/vboxconfig
+-Support de la virtualisation matérielle (VT-x [vmx] ou AMD-V [svm]) pour pouvoir utiliser un système invité en 64 bits :
+egrep '(vmx|svm)' /proc/cpuinfo ==>pas de réponse = pas de virtualisation matérielle
+##Fin commandes facultatives##
+
+2-Importation des machines virtuelles (4G RAM, 20GO Espace disque, 2 NIC)
+-Fichier-->Importer un appareil virtuel, parcourir controler.ova
+-Cloner la vm 'controler' to 'compute1'
+-Change hostname (/etc/hosts) to 'cloud-lab-1'
+
+2.1 Verifier l'accès internet depuis la VM : 
+-Cliquer avec le Bouton droit sur la VM, Configuration / Réseau / Carte 1
+
+-Cocher Activer la carte réseau, choisr le mot d'accès NAT,Dans Avancé laisser les options par défaut.
+
+2.2 Configurer l'accès à la VM depuis la machine hôte:
+
+2.2.1 Menu principal de Virtual Box (pas dans celui de la VM):
+
+-Fichier / Parametres / Réseau / Onglet Réseau hôte uniquement
+
+-Ajouter le réseau vboxnet0 ---> IP address: 192.168.56.1 (qui est proposé par défaut par exemple)
+On peut également configurer le serveur DHCP (optionnel mais penser à laisser de la place pour les IPs fixes).
+
+2.2.2 On revient à la configuration de la  VM Créer un second  pour l'accès depuis la machine hôte vers la VM :
+-Configuration / Réseau / Onglet Carte 2, 
+-Cocher Activer la carte réseau, choisir le mot d'accès Réseau privé hote, Nom : vboxnet0 crée precedemment.
+-Dans Avancé, choisir Tout autoriser, laisser les autres parametres par défaut..
+
+3-VMs Settings, Network, Carte 1, Add Rules TCP: port SSH 22<=>2222/2223, TCP: port HTTP 80<=>8080
+4-Demarrer les deux VMs et executer la commande ifconfig afin de recuperer les adresses IP.
+user: cloud, password: cloud-lab
+5-Verification de la connexion SSH
+A partir de la machine hote :
+VM1 : ssh cloud@IP -p 2222
+VM2 : ssh cloud@IP -p 2223
+
+###Option Muti-node VM deployed in mutiple physical machines###
+Add carte 3, briged network (Acces par pont), Tout autoriser.
+
+
+
+ 
