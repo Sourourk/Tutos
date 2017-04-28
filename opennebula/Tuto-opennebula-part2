@@ -9,7 +9,7 @@ $ firewall-cmd --reload
 2-Install Opennebula :
 
 $ yum install opennebula-server opennebula-sunstone opennebula-ruby opennebula-gate opennebula-flow
-/usr/share/one/install_gems
+$ /usr/share/one/install_gems
 
 3-change password oneadmin :
 
@@ -23,6 +23,22 @@ $ vi /var/local/tutorial/configure_tutorial.sh
 -->OpenNebula can be configured to use qemu emulation instead of kvm
 virtualization but not per VM but in the driver definition. The type
 of the VM driver can be changed from "kvm" to "qemu" in oned.conf.
+In /etc/one/oned.conf change Type="kvm" by Type="qemu"
+####
+VM_MAD = [
+    NAME           = "kvm",
+    SUNSTONE_NAME  = "KVM",
+    EXECUTABLE     = "one_vmm_exec",
+    ARGUMENTS      = "-t 15 -r 0 kvm",
+    DEFAULT        = "vmm_exec/vmm_exec_kvm.conf",
+    TYPE           = "qemu",
+    KEEP_SNAPSHOTS = "no",
+    IMPORTED_VMS_ACTIONS = "terminate, terminate-hard, hold, release, suspend,
+        resume, delete, reboot, reboot-hard, resched, unresched, disk-attach,
+        disk-detach, nic-attach, nic-detach, snap-create, snap-delete"
+]
+####
+
 5-Set Tutorial Configuration
 
 $ chmod a+x /var/local/tutorial/configure_tutorial.sh && /var/local/tutorial/configure_tutorial.sh
