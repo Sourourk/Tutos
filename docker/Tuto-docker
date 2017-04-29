@@ -107,8 +107,8 @@ RUN apt-get update && apt-get install -y openssh-server git apache2 python vim
 RUN mkdir /var/run/sshd
 RUN echo 'root:root' | chpasswd
 RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-#git clone https://github.com/walidsaad/wendelin-vagrant-grid5000 /var/www/html/MyApp
-ADD MyApp /var/www/html/MyApp
+git clone https://github.com/walidsaad/MyApp-v2 /var/www/html/
+#ADD MyApp /var/www/html/MyApp
 WORKDIR /var/www/html/MyApp
 EXPOSE 22 80 >>Dockerfile
 
