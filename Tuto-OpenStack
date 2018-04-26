@@ -1,0 +1,646 @@
+
+**************************************************************************************************
+			VirtualBox setup
+**************************************************************************************************
+1-Install  VirtualBox
+Ubuntu <16.04
+-Add key/signature from VirtualBox repository:
+wget -q http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc -O- | sudo apt-key add - 
+-Add Oracle repository to Ubuntu apt/sources.list:
+echo "deb http://download.virtualbox.org/virtualbox/debian $(lsb_release -sc) contrib" | sudo tee /etc/apt/sources.list.d/virtualbox.list && wget -q http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc -O- | sudo apt-key add - && sudo apt-get update
+-Install:
+sudo apt-get install virtualbox-5.1
+
+Ubuntu >=16.04
+-Add key/signature from VirtualBox repository:
+wget -q -O- http://download.virtualbox.org/virtualbox/debian/oracle_vbox_2016.asc | sudo apt-key add -
+-Add Oracle repository to Ubuntu apt/sources.list:
+echo "deb http://download.virtualbox.org/virtualbox/debian $(lsb_release -sc) contrib" | sudo tee /etc/apt/sources.list.d/virtualbox.list && wget -q http://download.virtualbox.org/virtualbox/debian/oracle_vbox.asc -O- | sudo apt-key add - && sudo apt-get update
+-Install:
+sudo apt-get install virtualbox-5.1
+
+##Commands if problem##
+-Add account to''vboxusers''group (USB access inside VM):
+sudo usermod -G vboxusers -a $USER
+- update DKMS package (after uninstall ubuntu official  Vbox and install Oracle VBox version):
+sudo /etc/init.d/vboxdrv setup
+-uninstall older VBox version:
+sudo apt-get purge virtualbox-\*
+/sbin/vboxconfig
+-Hardware virtualization support (VT-x [vmx] or AMD-V [svm]) for using 64bits guest system:
+egrep '(vmx|svm)' /proc/cpuinfo ==>no response = no Hardware virtualization
+
+**************************************************************************************************
+		Atelier 1 : Import Virtual Appliances and Configure OpenStack Nodes (Controler and Compute Virtual Machines)
+**************************************************************************************************
+
+1-Import VBox Appliance (>4G RAM, 25GO Espace disque, 2 NIC)
+2-File, import appliance, select controler_lasalle.ova
+3-Clone the 'controler_lasalle' VM to 'compute_lasalle'
+4-Start the 'compute_lasalle' VM
+5-Change hostname (/etc/hosts) to 'cloud-compute1'
+
+**************************************************************************************************
+		Atelier 1 : VirtualBox Networking Settings for OpenStack Nodes (Controler and Compute)
+**************************************************************************************************
+
+1-Internet access from Controler VM ( NAT Adapter): 
+-VM, settings / Network / Adapter 1
+
+-Enable Adpater 1, Check NAT method, keep other options as default.
+
+2-Ports Forwarding (Controler VM) to access from outside (Internet or LAN)
+-VMs Settings, Network, Carte 1
+-Add Rules TCP: port SSH 22<=>2222, TCP: port HTTP 80<=>8080
+
+3-Access from Host / Access between VMS (Host-only Adapter):
+
+-File (Virtual Box), settings, Network,  Host-only networks
+
+-Add vboxnet0 network---> IP address: 192.168.56.1, and DHCP server by default.
+
+-Controler and Compute VM , settings / Network / Adpater 2
+-Enable Adpater 2, select Host-only Adapter, name : vboxnet0
+-Advanced options, select accept, keep other options as default.
+
+4-Start Controler VM
+
+7-SSH access From Loccal Host using port forwarding (user: cloud/stack, password: cloud-lab)
+$ ssh -p 2222 cloud@localhost
+cloud@localhost's password: 
+Welcome to Ubuntu 16.04.3 LTS (GNU/Linux 4.13.0-32-generic x86_64)
+cloud@cloud-VirtualBox:~$ sudo su - stack
+[sudo] Mot de passe de cloud : 
+stack@cloud-VirtualBox:~$ sudo ifconfig
+
+8-SSH access From Loccal Host without (user: cloud/stack, password: cloud-lab)
+$ ssh  cloud@192.168.56.101
+
+9-SSH access From  outside to Local Host using port forwarding (user: cloud/stack, password: cloud-lab)
+$ ssh -p 2222 cloud@ip --> ip of your machine.
+
+10-(optional)Muti-node deployment (compute and controler will be deployed in 2 physical machines)
+-Enable Adapter 3
+-Name: briged network
+-Accept (in advanced).
+
+**************************************************************************************************
+		Atelier 1 : Download Openstack With DEVSTACK (Controller and Compute)
+**************************************************************************************************
+1-Install git
+$ apt-get install -y git sudo || yum install -y git sudo
+
+2-Add Stack User
+$ sudo useradd -s /bin/bash -d /opt/stack -m stack
+$ echo "stack ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/stack
+$ sudo su - stack
+
+3-Set Up SSH
+Set up the stack user on each node with an ssh key for access (replace key with your  .ssh/id_rsa.pub):
+$ su - stack
+$ mkdir ~/.ssh; chmod 700 ~/.ssh
+echo "ssh-rsa AAAAB3NzaC1yc2EAAAADXXXXXXXXXXXXXXXXXXXXXXXX" > ~/.ssh/authorized_keys
+
+2-Download DevStack
+
+$ git clone https://git.openstack.org/openstack-dev/devstack
+$ cd devstack
+The devstack repo contains a script that installs OpenStack and templates for configuration files
+$ ls
+
+**************************************************************************************************
+		Atelier 2 : Configure and Install Openstack With DEVSTACK (All-In-One)
+**************************************************************************************************
+1-Configure/Install OpenStack Controller Node
+The cluster controller runs all OpenStack services and hypervisor.
+$ ssh -p 2222 cloud@localhost (from local host)
+cloud@localhost's password: cloud-lab
+cloud@cloud-VirtualBox:~$ sudo su - stack
+[sudo] Mot de passe de cloud : cloud-lab
+$ cd devstack
+$ echo "[[local|localrc]]
+HOST_IP=192.168.56.101
+FLAT_INTERFACE=enp0s8
+MULTI_HOST=1
+LOGFILE=/opt/stack/logs/stack.sh.log
+ADMIN_PASSWORD=labstack
+DATABASE_PASSWORD=$ADMIN_PASSWORD
+RABBIT_PASSWORD=$ADMIN_PASSWORD
+SERVICE_PASSWORD=$ADMIN_PASSWORD
+VOLUME_BACKING_FILE_SIZE=15G
+
+# Swift
+ENABLED_SERVICES+=,s-proxy,s-object,s-container,s-account
+# Heat
+ENABLED_SERVICES+=,heat,h-api,h-api-cfn,h-api-cw,h-eng
+enable_plugin heat https://git.openstack.org/openstack/heat" > local.conf
+
+$ ./stack.sh
+$ (when reboot) ./unstack.sh 
+
+
+**************************************************************************************************
+		Atelier 2 : Configure and Install Openstack With DEVSTACK (Multi-Node)
+**************************************************************************************************
+Controller and Compute VMs are deployed on 2 different physical machines
+
+1-Configure/Install OpenStack Controller Node
+
+$ ssh -p 2222 cloud@localhost (from local host)
+cloud@localhost's password: cloud-lab
+cloud@cloud-VirtualBox:~$ sudo su - stack
+[sudo] Mot de passe de cloud : cloud-lab
+$ cd devstack
+$ sudo ifconfig -->-Check IP of enp0s9 network interface (eg. 192.168.1.17)
+$ echo "[[local|localrc]]
+HOST_IP=192.168.1.17
+FLAT_INTERFACE=enp0s9
+MULTI_HOST=1
+LOGFILE=/opt/stack/logs/stack.sh.log
+ADMIN_PASSWORD=labstack
+DATABASE_PASSWORD=$ADMIN_PASSWORD
+RABBIT_PASSWORD=$ADMIN_PASSWORD
+SERVICE_PASSWORD=$ADMIN_PASSWORD
+VOLUME_BACKING_FILE_SIZE=15G
+
+# Swift
+ENABLED_SERVICES+=,s-proxy,s-object,s-container,s-account
+# Heat
+ENABLED_SERVICES+=,heat,h-api,h-api-cfn,h-api-cw,h-eng
+enable_plugin heat https://git.openstack.org/openstack/heat" > local.conf
+
+$ ./stack.sh
+
+=========================
+DevStack Component Timing
+ (times are in seconds)  
+=========================
+run_process           71
+test_with_retry        3
+apt-get-update         8
+pip_install          246
+osc                  321
+wait_for_service      90
+dbsync                40
+apt-get              149
+-------------------------
+Unaccounted time     738
+=========================
+Total runtime        1666
+
+
+
+This is your host IP address: 192.168.1.17
+This is your host IPv6 address: ::1
+Horizon is now available at http://192.168.1.17/dashboard
+Keystone is serving at http://192.168.1.17/identity/
+The default users are: admin and demo
+The password: labstack
+
+$ (when reboot) ./unstack.sh 
+
+
+
+
+2-Configure/Install OpenStack Compute Node
+
+The  compute node runs  hypervisor services. Configure the compute’s DevStack in local.conf
+$ ssh -p 2222 cloud@localhost (from local host)
+cloud@localhost's password: cloud-lab
+cloud@cloud-VirtualBox:~$ sudo su - stack
+[sudo] Mot de passe de cloud : cloud-lab
+$ sudo ifconfig -->-Check IP of enp0s9 network interface (eg. 192.168.1.17)
+$ echo "[[local|localrc]]
+HOST_IP=192.168.3.216 # change this per compute node
+FLAT_INTERFACE=enp0s9
+MULTI_HOST=1
+LOGFILE=/opt/stack/logs/stack.sh.log
+ADMIN_PASSWORD=labstack
+DATABASE_PASSWORD=$ADMIN_PASSWORD
+RABBIT_PASSWORD=$ADMIN_PASSWORD
+SERVICE_PASSWORD=$ADMIN_PASSWORD
+DATABASE_TYPE=mysql
+SERVICE_HOST=192.168.1.74
+MYSQL_HOST=$SERVICE_HOST
+RABBIT_HOST=$SERVICE_HOST
+GLANCE_HOSTPORT=$SERVICE_HOST:9292
+ENABLED_SERVICES=n-cpu,q-agt,n-api-meta,c-vol,placement-client
+NOVA_VNC_ENABLED=True
+NOVNCPROXY_URL="http://$SERVICE_HOST:6080/vnc_auto.html"
+VNCSERVER_LISTEN=$HOST_IP
+VNCSERVER_PROXYCLIENT_ADDRESS=$VNCSERVER_LISTEN" > local.conf
+
+$ ./stack.sh
+
+=========================
+DevStack Component Timing
+ (times are in seconds)  
+=========================
+run_process           10
+apt-get-update        15
+pip_install          103
+osc                    6
+wait_for_service      12
+apt-get              117
+-------------------------
+Unaccounted time     106
+=========================
+Total runtime        369
+
+
+
+This is your host IP address: 192.168.0.18
+This is your host IPv6 address: fe80::c9dc:3f8a:22a5:3dd9
+
+$ (when reboot) ./unstack.sh 
+
+
+**************************************************************************************************
+		Atelier 3 : Dashboard (Horizon), Security (Keystone), 
+ 			    Manage Projects, Users and Roles, Openstack CLI (OSC)
+**************************************************************************************************
+Log in with admin/labstack
+
+1-Admin Menu
+-Compute Node List: Compute/Hypervisors, Compute/Host Aggregates, Compute/Availability Zones
+-Intances, Flavors and Images
+-Block Volumes: 
+-Network Informations: Network/Networks, Network/Routers, Network/Floating IPs
+-Modify Quota: System/Defaults
+
+2-Identity Menu
+ 
+-Create 2 Roles Student/Teacher: Roles/Create Role
+-Create 2 Users with different roles: Users/Create User  (for eg. walid/walid and saad/saad
+-Create 2 Groups Students/Teachers: Groups/Create Group
+-Assign users to Groups: Groups/Manage Members/Add Users
+-Create 2 Projects Lasalle_Teachers and Lasalle_Students: Projects/Create Project (with different Quotas/Groups)
+
+
+3-Project Menu
+-Compute Overview, Volumes, Network, Object Storage.
+-Log with Teacher(resp Student) user.
+
+4-OpenStack Command Line Interface (OSC)
+
+-Install the python CLI (<=Python-2.7)
+$ apt-get install python-dev python-pip
+$ pip install python-openstackclient
+-Download and source the OpenStack RC file from the OpenStack dashboard as an administrative user or any other user: RC file is used to set the required environment variables for the OpenStack command-line clients. It is project-specific and contains the credentials used by OpenStack Compute, Image, and Identity services.
+-Source the RC file: When you source the file and enter the password, environment variables are set for that shell. They allow the commands to communicate  to the OpenStack services that run in the cloud.
+$ source demo-openrc.sh
+When you are prompted for an OpenStack password, enter the OpenStack password for the user who downloaded the openrc.sh file.
+
+5-Add/map Compute Node to the Cloud (Muti-Node use case)
+
+$ nova service-list --binary nova-compute
+
++--------------------------------------+--------------+------------------+------+---------+-------+----------------------------+-----------------+-------------+
+| Id                                   | Binary       | Host             | Zone | Status  | State | Updated_at                 | Disabled Reason | Forced down |
++--------------------------------------+--------------+------------------+------+---------+-------+----------------------------+-----------------+-------------+
+| c6c49b74-82b9-409f-bbd0-8b1e46633c07 | nova-compute | cloud-VirtualBox | nova | enabled | up    | 2018-02-18T16:06:58.000000 | -               | False       |
+| c9a1745d-bd5e-46fa-a503-ce7a67398b7a | nova-compute | cloud-compute    | nova | enabled | up    | 2018-02-18T16:07:04.000000 | -               | False       |
++--------------------------------------+--------------+------------------+------+---------+-------+----------------------------+----------------
+
+$ ./tools/discover_hosts.sh
+Getting compute nodes from cell 'cell1': 4596fb15-597a-48b5-91d4-5e6c6c0d3815
+Found 1 unmapped computes in cell: 4596fb15-597a-48b5-91d4-5e6c6c0d3815
+Creating host mapping for compute host 'cloud-compute': 42bd0e85-6c4f-4fb9-874a-7c4cb46f9a20
+-Check maping: Compute/Hypervisors
+
+**************************************************************************************************
+		Atelier 4 : Manage Images (Glance)
+**************************************************************************************************
+1-Using Dashboard
+-Create Falvor :  Admin/Flavors
+-Create Image : Admin/Images
+2-Using CLI
+-Create Flavor : 
+$ openstack flavor create --public ubuntu.tiny --id u1 --ram 1024 --disk 5 --vcpus 1
++----------------------------+-------------+
+| Field                      | Value       |
++----------------------------+-------------+
+| OS-FLV-DISABLED:disabled   | False       |
+| OS-FLV-EXT-DATA:ephemeral  | 0           |
+| disk                       | 5           |
+| id                         | u1          |
+| name                       | ubuntu.tiny |
+| os-flavor-access:is_public | True        |
+| properties                 |             |
+| ram                        | 1024         |
+| rxtx_factor                | 1.0         |
+| swap                       |             |
+| vcpus                      | 1           |
++----------------------------+-------------+
+
+$ openstack flavor list
++----+-------------+-------+------+-----------+-------+-----------+
+| ID | Name        |   RAM | Disk | Ephemeral | VCPUs | Is Public |
++----+-------------+-------+------+-----------+-------+-----------+
+| 1  | m1.tiny     |   512 |    1 |         0 |     1 | True      |
+| 2  | m1.small    |  2048 |   20 |         0 |     1 | True      |
+| 3  | m1.medium   |  4096 |   40 |         0 |     2 | True      |
+| 4  | m1.large    |  8192 |   80 |         0 |     4 | True      |
+| 42 | m1.nano     |    64 |    0 |         0 |     1 | True      |
+| 5  | m1.xlarge   | 16384 |  160 |         0 |     8 | True      |
+| 84 | m1.micro    |   128 |    0 |         0 |     1 | True      |
+| c1 | cirros256   |   256 |    0 |         0 |     1 | True      |
+| d1 | ds512M      |   512 |    5 |         0 |     1 | True      |
+| d2 | ds1G        |  1024 |   10 |         0 |     1 | True      |
+| d3 | ds2G        |  2048 |   10 |         0 |     2 | True      |
+| d4 | ds4G        |  4096 |   20 |         0 |     4 | True      |
+| u1 | ubuntu.tiny |   1024 |   5 |         0 |     1 | True      |
++----+-------------+-------+------+-----------+-------+-----------+
+
+
+-Create Image
+openstack image create --public --disk-format qcow2 --container-format bare --file xenial-server-cloudimg-amd64-disk1.img ubuntu
++------------------+------------------------------------------------------+
+| Field            | Value                                                |
++------------------+------------------------------------------------------+
+| checksum         | e830a681a44d23f744eb260398f73fd0                     |
+| container_format | bare                                                 |
+| created_at       | 2018-02-20T08:15:42Z                                 |
+| disk_format      | qcow2                                                |
+| file             | /v2/images/0cff48df-6881-4e0a-97e3-049bcedb651b/file |
+| id               | 0cff48df-6881-4e0a-97e3-049bcedb651b                 |
+| min_disk         | 0                                                    |
+| min_ram          | 0                                                    |
+| name             | ubuntu                                               |
+| owner            | 2460e9f7aaff415ebe59f126b33de672                     |
+| protected        | False                                                |
+| schema           | /v2/schemas/image                                    |
+| size             | 289865728                                            |
+| status           | active                                               |
+| tags             |                                                      |
+| updated_at       | 2018-02-20T08:16:24Z                                 |
+| virtual_size     | None                                                 |
+| visibility       | public                                               |
++------------------+------------------------------------------------------+
+
+$ openstack image list
++--------------------------------------+--------------------------+--------+
+| ID                                   | Name                     | Status |
++--------------------------------------+--------------------------+--------+
+| 585a1d2a-56d3-498f-93d1-9bf4e8dd55ac | cirros-0.3.5-x86_64-disk | active |
+| 275a1c0c-93eb-432c-8ca2-765e67712d97 | fedora_27                | active |
+| 0cff48df-6881-4e0a-97e3-049bcedb651b | ubuntu                   | active |
++--------------------------------------+--------------------------+--------+
+
+
+**************************************************************************************************
+		Atelier 6 : Manage Virtual Machines / Instances (Nova) and Floating IP (Neutron)
+**************************************************************************************************
+1-Create Keys Pairs (As admin user)
+-Project/Compute/Key Pairs/Create Key Pair (admin-key)
+-Project/Compute/Instances (as admin)
+-Copy admin-key.pem to controler (inside devstack/ folder)
+$ chmod 600 admin-key.pem
+
+2-Create Instances (As admin user)
+-intsance_1 (cirros m1.nano 64MB), instance_2 (ubuntu ubuntu.tiny 1GB): Project/Compute/Instances
+-Check Log, Host
+3-Access to Console (instance_1)
+-From VirtualBox, add port forwarding to controler VM (TCP/6080<->6080)
+-User: cirros, password: cubswin:)
+-ifconfig (ping instance_2, ping to instance_2 from controller)
+--> By default, we will not be able to ping to the VMs. We will need to make changes to the Security rules in Security Group. Security groups are sets of IP filter rules that are applied to network interfaces of a VM. 
+-Add icmp traffic: Project/Network/Security Groups/Manage Rules, add ALL ICMP.
+-Try to ping again
+
+
+4-SSH Access (from controller)
+By default, we will not be able to SSH to the VMs. We will need to make changes to the Security rules, and to associate floating IP to instances from public pool network:
+-Allocate 2 floating IP (Network/Floating IPs/Allocate IP to project) : 172.24.4.x (OR directly associate floating IP to 2 instances)
+-Network/Security Groups/Manage Rules, add Custum Rules (add 22 port)
+-ssh instance_1 using admin-key : ssh -i admin-key.pem cirros@172.24.4.2
+
+5-Repeat 3 and 4 steps for instance_2
+
+**************************************************************************************************
+		Atelier 5 : Manage Network (Neutron)
+**************************************************************************************************
+-Log as Teacher (eg. walid)
+
+1-Create Router
+-Check Network Topology: Project/Network/Network 
+-Create Router : Project/Network/Routers , Create Router: Router Name (router_T), External Network (public, attach router_T to public network)
+-Check Network Topology
+
+$ openstack router list
++--------------------------------------+----------+--------+-------+-------------+-------+----------------------------------+
+| ID                                   | Name     | Status | State | Distributed | HA    | Project                          |
++--------------------------------------+----------+--------+-------+-------------+-------+----------------------------------+
+| 18d33339-7a27-42a1-ac3b-d3ce7101f11b | router_T | ACTIVE | UP    | False       | False | de91dfacf5a6488aaa74a7e5f0de6e43 |
+| 8201378d-1d04-4c70-a04d-763421d3c518 | router1  | ACTIVE | UP    | False       | False | 2460e9f7aaff415ebe59f126b33de672 |
++--------------------------------------+----------+--------+-------+-------------+-------+----------------------------------+
+
+
+2-Create Network
+-Project/Network/Networks: Create Network (teacher_network) and Subnet (Name: teacher_subnet, Network Adress: 10.10.0.0/24)
+-Attach teacher_subnet to router_T: Project/Network/Routers, Select Router_T, Add Interface, Select teacher_subnet
+-Check Network Topology: Project/Network/Network
+
+$ openstack network list
++--------------------------------------+-----------------+----------------------------------------------------------------------------+
+| ID                                   | Name            | Subnets                                                                    |
++--------------------------------------+-----------------+----------------------------------------------------------------------------+
+| 5d3700bb-58fb-4c28-a09d-d717d6919722 | teacher_network | fe9589e9-d3ac-4a81-8c0f-603badf6c9f2                                       |
+| 766b04b5-601e-4d14-8c82-1282f8cfb55e | public          | 19244510-4bfa-498d-9119-70c1df0d908a, fc4a10e5-f124-4154-899c-dc66075696fb |
+| 85ee2346-d92e-49d7-89f4-5b64782dbbd1 | private         | 6530a145-2c29-4a97-958d-f527f0e1dad3, 734c3a13-03c6-46cd-8097-809a04a87201 |
++--------------------------------------+-----------------+----------------------------------------------------------------------------+
+
+$ openstack subnet list
++--------------------------------------+---------------------+--------------------------------------+---------------------+
+| ID                                   | Name                | Network                              | Subnet              |
++--------------------------------------+---------------------+--------------------------------------+---------------------+
+| 19244510-4bfa-498d-9119-70c1df0d908a | ipv6-public-subnet  | 766b04b5-601e-4d14-8c82-1282f8cfb55e | 2001:db8::/64       |
+| 6530a145-2c29-4a97-958d-f527f0e1dad3 | private-subnet      | 85ee2346-d92e-49d7-89f4-5b64782dbbd1 | 10.0.0.0/26         |
+| 734c3a13-03c6-46cd-8097-809a04a87201 | ipv6-private-subnet | 85ee2346-d92e-49d7-89f4-5b64782dbbd1 | fd37:fe20:8043::/64 |
+| fc4a10e5-f124-4154-899c-dc66075696fb | public-subnet       | 766b04b5-601e-4d14-8c82-1282f8cfb55e | 172.24.4.0/24       |
+| fe9589e9-d3ac-4a81-8c0f-603badf6c9f2 | teacher_subnet      | 5d3700bb-58fb-4c28-a09d-d717d6919722 | 10.10.0.0/24        |
++--------------------------------------+---------------------+--------------------------------------+---------------------+
+
+
+$ openstack subnet show teacher_subnet
++-------------------+--------------------------------------+
+| Field             | Value                                |
++-------------------+--------------------------------------+
+| allocation_pools  | 10.10.0.2-10.10.0.254                |
+| cidr              | 10.10.0.0/24                         |
+| created_at        | 2018-03-04T23:06:00Z                 |
+| description       |                                      |
+| dns_nameservers   |                                      |
+| enable_dhcp       | True                                 |
+| gateway_ip        | 10.10.0.1                            |
+| host_routes       |                                      |
+| id                | fe9589e9-d3ac-4a81-8c0f-603badf6c9f2 |
+| ip_version        | 4                                    |
+| ipv6_address_mode | None                                 |
+| ipv6_ra_mode      | None                                 |
+| name              | teacher_subnet                       |
+| network_id        | 5d3700bb-58fb-4c28-a09d-d717d6919722 |
+| project_id        | de91dfacf5a6488aaa74a7e5f0de6e43     |
+| revision_number   | 0                                    |
+| segment_id        | None                                 |
+| service_types     |                                      |
+| subnetpool_id     | None                                 |
+| tags              |                                      |
+| updated_at        | 2018-03-04T23:06:00Z                 |
++-------------------+--------------------------------------+
+
+
+3-Create Security Group
+Security groups are sets of IP filter rules that are applied to network interfaces of a VM. After the security group is created, you can add rules to the security group.
+-Project/Network/Security Groups, Create Security Group (teachers_sec_group)
+
+4-Add Rules (ICMP and SSH)
+-Project/Network/Security Groups/Manage Security Group Rules/ Add Rules (ALL ICMP, Custum Rules port 22)
+
+5-Create Key Pairs
+-Project/Compute/Key Pairs/Create Key Pair (teachers-key)
+-Project/Compute/Instances
+-Copy teachers-key.pem to controler (inside devstack/ folder)
+$ chmod 600 teachers-key.pem
+
+6-Create Floatings IP
+-Project/Network/Floating IPs/Allocate floating IP to project (Allocate IP from public network, check quotas)
+
+$ openstack floating ip list
++--------------------------------------+---------------------+------------------+------+--------------------------------------+----------------------------------+
+| ID                                   | Floating IP Address | Fixed IP Address | Port | Floating Network                     | Project                          |
++--------------------------------------+---------------------+------------------+------+--------------------------------------+----------------------------------+
+| 0489d55f-3c25-42de-990b-2a0cd6c783f0 | 172.24.4.3          | None             | None | 766b04b5-601e-4d14-8c82-1282f8cfb55e | de91dfacf5a6488aaa74a7e5f0de6e43 |
+| b30b4300-3bce-497d-87bc-b97e1bc83550 | 172.24.4.4          | None             | None | 766b04b5-601e-4d14-8c82-1282f8cfb55e | 2460e9f7aaff415ebe59f126b33de672 |
++--------------------------------------+---------------------+------------------+------+--------------------------------------+----------------------------------+
+
+
+7-create instance instance_3 using new network
+-Project/Compute/Instances/Launch Instance: Image Cirros, 1G volume, m1.nano(64 MB), Network teachers_network, Security Group teachers_sec_group, Key Pairs teachers-key 
+-Check Quotas : Project/Compute/Overview
+-Check Volumes : Project/Compute/Volumes
+-Check Network : Project/Compute/Network/Network Topology
+-Check Host (as admin)
+
+8-Associate floating IP to instance_3
+-Project/Compute/Instances/Associate floating IP (select 172.24.4.3 IP)
+$ ping 172.24.4.3
+-SSH to instance_3 : from controller node
+$ ssh -i teachers-key.pem cirros@172.24.4.3
+The authenticity of host '172.24.4.3 (172.24.4.3)' can't be established.
+RSA key fingerprint is SHA256:BeqCVlZojeq1mbkymYPPXwHjMkF4IWs5NjYYiZp3Img.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '172.24.4.3' (RSA) to the list of known hosts.
+$ ping  8.8.8.8
+PING 8.8.8.8 (8.8.8.8): 56 data bytes
+64 bytes from 8.8.8.8: seq=0 ttl=42 time=105.173 ms
+64 bytes from 8.8.8.8: seq=1 ttl=42 time=61.201 ms
+
+9-Create Snapshot of instance_3 (instance_3_snap)
+A snapshot is an image which preserves the disk state of a running instance.
+-Project/Compute/Instances/Create Snapshot
+-Check Images : Project/Compute/Images
+-Check Snapshots: Project/Volumes/Snapshots
+-Luanch instance from Snapshot
+
+10-Check Instances form CLI
+-Download and source the OpenStack RC file from the OpenStack dashboard
+-Source the RC file (controller node) :
+$ source Lasalle_Teachers-openrc.sh
+$ openstack server list
++--------------------------------------+------------+--------+---------------------------------------+-------+---------+
+| ID                                   | Name       | Status | Networks                              | Image | Flavor  |
++--------------------------------------+------------+--------+---------------------------------------+-------+---------+
+| 0819c625-aaef-4d72-b82d-247ae47b0780 | instance_3 | ACTIVE | teacher_network=10.10.0.8, 172.24.4.3 |       | m1.nano |
++--------------------------------------+------------+--------+---------------------------------------+-------+---------+
+
+$ openstack volume snapshot list
++--------------------------------------+-------------------------------+-------------+-----------+------+
+| ID                                   | Name                          | Description | Status    | Size |
++--------------------------------------+-------------------------------+-------------+-----------+------+
+| 64ae7cf6-1e66-4b04-9541-4bd26a2e1e54 | snapshot pour instance_3_snap |             | available |    1 |
++--------------------------------------+-------------------------------+-------------+-----------+------+
+
+
+
+**************************************************************************************************
+		Atelier 7.1 : Manage Block Storage (Cinder)
+**************************************************************************************************
+-Log as Teacher (eg. walid)
+
+1-Create Volume
+Volumes are block devices that can be attached to instances.
+-Project/Volumes/Volumes/Create Volume : Name volume1, type lvmdiver-1, size 3 Gb
+
+2-Attach Volume to Running Instance (instance_3)
+-Project/Compute/Instances/Attach Volume, select volume1
+-Check volume1 status: Project/Volumes/Volumes (in use by instance_3)
+$ ssh -i teachers-key.pem cirros@172.24.4.3
+$ df -h
+Filesystem                Size      Used Available Use% Mounted on
+/dev                     21.3M         0     21.3M   0% /dev
+/dev/vda1                23.2M     18.0M      4.0M  82% /
+tmpfs                    24.8M         0     24.8M   0% /dev/shm
+tmpfs                   200.0K     72.0K    128.0K  36% /run
+$ sudo mkfs.ext3  /dev/vdb
+$ sudo mkfs.ext4  /dev/vdb
+mke2fs 1.42.2 (27-Mar-2012)
+Filesystem label=
+OS type: Linux
+Block size=4096 (log=2)
+Fragment size=4096 (log=2)
+Stride=0 blocks, Stripe width=0 blocks
+196608 inodes, 786432 blocks
+39321 blocks (5.00%) reserved for the super user
+First data block=0
+Maximum filesystem blocks=805306368
+24 block groups
+32768 blocks per group, 32768 fragments per group
+8192 inodes per group
+Superblock backups stored on blocks: 
+	32768, 98304, 163840, 229376, 294912
+
+Allocating group tables: done                            
+Writing inode tables: done                            
+Creating journal (16384 blocks): done
+Writing superblocks and filesystem accounting information: done 
+$ sudo mount /dev/vdb /mnt
+$ df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+/dev                     21792         0     21792   0% /dev
+/dev/vda1                23797     18452      4117  82% /
+tmpfs                    25372         0     25372   0% /dev/shm
+tmpfs                      200        72       128  36% /run
+/dev/vdb               3096336     70144   2868908   2% /mnt
+$exit
+
+3-List of Volumes using CLI
+$ openstack volume list
++--------------------------------------+---------+--------+------+-------------------------------------+
+| ID                                   | Name    | Status | Size | Attached to                         |
++--------------------------------------+---------+--------+------+-------------------------------------+
+| 984b6041-bdd1-4080-975d-11a17303774a | volume1 | in-use |    3 | Attached to instance_3 on /dev/vdb  |
+| 3407527f-ba88-4f70-bc0a-cd84eccfc745 |         | in-use |    1 | Attached to instance_3 on /dev/vda  |
++--------------------------------------+---------+--------+------+-------------------------------------+
+
+4-Create Snapshot/ Upload volume to image.
+
+**************************************************************************************************
+		Atelier 7.2 : Manage Object Storage (Swift)
+**************************************************************************************************
+-Log as Teacher (eg. walid)
+
+1-Create Container
+A container is a storage compartment for your data and provides a way for you to organize your data. You can think of a container as a folder in Windows® or a directory in UNIX
+-Project/Object Store/Containers: Create Container (Name: container1, public access)
+-Add photos
+
+
+
+**************************************************************************************************
+		Atelier 8 : Manage applications and resources orechestration (Heat)
+**************************************************************************************************
+1-Using CLI
+$ openstack stack create -t wordpress.yaml --parameter key=admin-key --parameter image=ubuntu --parameter flavor=ubuntu.tiny wordpress
+$ openstack stack list
+$ openstack stack show wordpress
