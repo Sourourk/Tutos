@@ -113,17 +113,9 @@ $ docker exec -d docker1 mkdir /var/www/html/test
 $ docker stop docker1 docker2
 $ docker rm docker1 docker2
 
-9-Running web application:
--Create Mysql
-$ sudo docker run --name my_mysql -e MYSQL_ROOT_PASSWORD=root -d mysql:5.7
-66c0529d97fb3a458c7621cb60ec67472b74b906b2d624fe999fa1d0ceabc0d8
--create PHPMyadmin
-$ sudo docker run --name my_admin -d --link my_mysql:db -p 8080:80 phpmyadmin/phpmyadmin
-ff548373c12c7c8867e4a6f2f25e6d27773847e1dac38654ad3504f21d7a3f4c
 
+9-Running web application:
 -Change Dockerfile to deploy web application
--from local machine to VM (option)
-$ scp -r -P 2228 Documents/Tutos-VM/docker-demo/MyApp/ cloud@localhost:
 $ echo \
 "FROM ubuntu:16.04 
 RUN apt-get update && apt-get install -y openssh-server apache2 git vim
@@ -145,6 +137,15 @@ $ sudo docker build -t myimage .
 $ sudo docker run -dt -p 80:80 --name docker1 myimage
 $ sudo docker exec -d docker1 /etc/init.d/apache2 start
 -->http://localhost/MyApp/ (with chrome)
+
+-Create Mysql
+$ sudo docker run --name my_mysql -e MYSQL_ROOT_PASSWORD=root -d mysql:5.7
+66c0529d97fb3a458c7621cb60ec67472b74b906b2d624fe999fa1d0ceabc0d8
+-create PHPMyadmin
+$ sudo docker run --name my_admin -d --link my_mysql:db -p 8080:80 phpmyadmin/phpmyadmin
+ff548373c12c7c8867e4a6f2f25e6d27773847e1dac38654ad3504f21d7a3f4c
+
+
 
 **************************************************************************************************
 		Atelier 7 : Multi-containers with docker-compose
