@@ -332,7 +332,7 @@ $ openstack flavor create --public ubuntu.tiny --id u1 --ram 1024 --disk 5 --vcp
 | swap                       |             |
 | vcpus                      | 1           |
 +----------------------------+-------------+
-
+$ wget http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img
 $ openstack flavor list
 +----+-------------+-------+------+-----------+-------+-----------+
 | ID | Name        |   RAM | Disk | Ephemeral | VCPUs | Is Public |
