@@ -1,0 +1,142 @@
+heat_template_version: 2014-10-16
+
+
+description:
+  Template that installs a wordpress server.
+  Note it is also used by the environment sample project
+parameters:
+
+  image:
+    type: string
+    description: The Ubuntu image to use.
+
+  flavor:
+    type: string
+    description: The NeCTAR flavour the webserver is to run on
+
+  key:
+    type: string
+    description: Name of an existing KeyPair to enable SSH access to the instances
+
+  mysql_server:
+    type: string
+    description: The IP address of the database server.
+    default: localhost
+
+  database_name:
+    type: string
+    description: Name of the application database.
+    default: wordpress
+
+  
+  database_user:
+    type: string
+    description: The database user name.
+    default: admin
+  public_net_id:
+    type: string
+    description: >
+      ID of public network for which floating IP addresses will be allocated
+  private_net_id:
+    type: string
+    description: ID of private network into which servers get deployed
+  private_subnet_id:
+    type: string
+    description: ID of private sub network into which servers get deployed
+
+
+
+resources:
+
+  database_password:
+    type: OS::Heat::RandomString
+    properties:
+      length: 32
+      sequence: lettersdigits
+  
+  mysql_root_password:
+    type: OS::Heat::RandomString
+    properties:
+      length: 32
+      sequence: lettersdigits
+  server1_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: private_net_id }
+      fixed_ips:
+        - subnet_id: { get_param: private_subnet_id }
+      security_groups: [default]
+
+  server1_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: public_net_id }
+      port_id: { get_resource: server1_port }
+  wordpress_instance:
+    type: OS::Nova::Server
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key }
+      networks:
+        - port: { get_resource: server1_port }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __mysql_ip__: { get_param: mysql_server }
+            __mysql_root_password__: { get_attr: [mysql_root_password, value] }
+            __database_name__: { get_param: database_name }
+            __database_user__: { get_param: database_user }
+            __database_password__: { get_attr: [database_password, value] }
+          template: |
+            #!/bin/bash
+            # install MySQL
+            apt-get update
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get install -y mysql-server
+            # configure MySQL root password
+            mysqladmin -u root password "__mysql_root_password__"
+            # listen on all network interfaces
+            sed -i "s/bind-address.*/bind-address = 0.0.0.0/" /etc/mysql/my.cnf
+            # restart service
+            service mysql restart
+            # create wordpress database
+            mysql -u root --password="__mysql_root_password__" <<EOF
+            CREATE DATABASE __database_name__;
+            CREATE USER '__database_user__'@'localhost';
+            SET PASSWORD FOR '__database_user__'@'localhost'=PASSWORD("__database_password__");
+            GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'localhost' IDENTIFIED BY '__database_password__';
+            CREATE USER '__database_user__'@'%';
+            SET PASSWORD FOR '__database_user__'@'%'=PASSWORD("__database_password__");
+            GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'%' IDENTIFIED BY '__database_password__';
+            FLUSH PRIVILEGES;
+            EOF
+            # install dependencies
+            apt-get update
+            apt-get -y install apache2 php libapache2-mod-php php-mysql php-gd mysql-client
+            # download wordpress
+            wget http://wordpress.org/latest.tar.gz
+            tar -xzf latest.tar.gz
+            # configure wordpress
+            cp wordpress/wp-config-sample.php wordpress/wp-config.php
+            sed -i 's/database_name_here/__database_name__/' wordpress/wp-config.php
+            sed -i 's/username_here/__database_user__/' wordpress/wp-config.php
+            sed -i 's/password_here/__database_password__/' wordpress/wp-config.php
+            sed -i 's/localhost/__mysql_ip__/' wordpress/wp-config.php
+            # install a copy of the configured wordpress into apache's www directory
+            rm /var/www/html/index.html
+            cp -R wordpress/* /var/www/html/
+            # give apache ownership of the application files
+            chown -R www-data:www-data /var/www/html/
+            chmod -R g+w /var/www/html/
+            systemctl restart apache2.service
+            systemctl restart mysql.service
+            # notify heat that we are done here
+            wc_notify --data-binary '{"status": "SUCCESS"}'
+outputs:
+
+  ip:
+    description: The IP address of the wordpress instance.
+    value: { get_attr: [wordpress_instance, first_address] }
+
