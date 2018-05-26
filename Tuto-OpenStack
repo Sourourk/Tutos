@@ -439,6 +439,7 @@ By default, we will not be able to SSH to the VMs. We will need to make changes 
 
 5-Repeat 3 and 4 steps for instance_2
 
+Note: may be you need to add the DNS IP to netwroks (private and public) if you want to install software on instances.
 **************************************************************************************************
 		Atelier 5 : Manage Network (Neutron SDN) 
 **************************************************************************************************
